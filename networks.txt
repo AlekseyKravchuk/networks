@@ -901,6 +901,7 @@ sudo docker exec container1 ifconfig eth1
 
 # Указанная команда может отсутствовать внутри контейнера - чтобы решить эту проблему нужно внутри контейнера выполнить установку необходимых пакетов командой:
 sudo docker exec container1 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container2 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
 
 5. Пробуем выполнить пинг-запрос с container1 (172.25.0.2) на container2 (172.25.0.3):
 sudo docker exec container1 ping 172.25.0.3
@@ -916,5 +917,3 @@ PING 172.25.0.3 (172.25.0.3) 56(84) bytes of data.
 А теперь усложним наш пример.
 Представьте, что нам поставили задачу добавить еще два контейнера, но с отдельной сетью 172.35.0.0/24,
 при этом сделать так, чтобы контейнеры из одной сети могли общаться с контейнерами из другой.
-
-
