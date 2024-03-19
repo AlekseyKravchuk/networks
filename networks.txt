@@ -775,6 +775,9 @@ sudo apt-get update
 # Устанавливаем OpenvSwitch:
 sudo apt-get install -y openvswitch-switch
 
+# В составе пакета openvswitch присутствует ovs-docker (/usr/bin/ovs-docker)
+
+
 # # Устанавливаем Docker. Минимальная установка docker для нашей конфигурации выглядит следующим образом:
 sudo apt-get install -y docker.io
 The following packages have unmet dependencies:
@@ -913,7 +916,92 @@ PING 172.25.0.3 (172.25.0.3) 56(84) bytes of data.
 64 bytes from 172.25.0.3: icmp_seq=2 ttl=64 time=0.067 ms
 64 bytes from 172.25.0.3: icmp_seq=3 ttl=64 time=0.059 ms
 
-# TODO:
+# Почему-то после перезапуска ПК OVS перестал видеть порты
+kav@bqp:~/networks$ sudo ovs-vsctl show
+91f87741-de07-4c42-b1c1-8aad5caf52ae
+    Bridge docker-ovsbr1
+        Port bf0d39c02c894_l
+            Interface bf0d39c02c894_l
+                error: "could not open network device bf0d39c02c894_l (No such device)"
+        Port b1e440b2884d4_l
+            Interface b1e440b2884d4_l
+                error: "could not open network device b1e440b2884d4_l (No such device)"
+        Port docker-ovsbr1
+            Interface docker-ovsbr1
+                type: internal
+    ovs_version: "2.17.9"
+
+# Чтобы починить, удалим их:
+sudo ovs-vsctl del-port bf0d39c02c894_l
+sudo ovs-vsctl del-port b1e440b2884d4_l
+
+kav@bqp:~/networks$ sudo ovs-vsctl show
+91f87741-de07-4c42-b1c1-8aad5caf52ae
+    Bridge docker-ovsbr1
+        Port docker-ovsbr1
+            Interface docker-ovsbr1
+                type: internal
+    ovs_version: "2.17.9"
+
+# Повторим сделанное ранее:
+sudo ovs-docker add-port docker-ovsbr1 eth1 container1 --ipaddress=172.25.0.2/24
+sudo ovs-docker add-port docker-ovsbr1 eth1 container2 --ipaddress=172.25.0.3/24
+
 А теперь усложним наш пример.
 Представьте, что нам поставили задачу добавить еще два контейнера, но с отдельной сетью 172.35.0.0/24,
 при этом сделать так, чтобы контейнеры из одной сети могли общаться с контейнерами из другой.
+
+#################### Схема D. Open vSwitch c двумя бриджами и четырьмя контейнерами ####################
+1. Итак, первое, что нам нужно сделать — добавить бридж в уже работающий Open vSwitch c названием docker-ovsbr2 и назначить ему ip-адрес 172.35.0.1 с маской 255.255.255.0:
+sudo ovs-vsctl add-br docker-ovsbr2
+sudo ifconfig docker-ovsbr2 172.35.0.1 netmask 255.255.255.0 up
+
+2. Проверяем добавленный бридж docker-ovsbr2 и назначенный ему ip-адрес:
+sudo ovs-vsctl show | grep docker-ovsbr2
+kav@bqp:~/networks$ sudo ovs-vsctl show | grep docker-ovsbr2
+    Bridge docker-ovsbr2
+        Port docker-ovsbr2
+            Interface docker-ovsbr2
+
+ifconfig -a | grep -A2 docker-ovsbrw
+
+
+
+3. Далее, как и в первой задаче нам нужно запустить два контейнера, но c названиями container3 и container4, и присвоить им ip-адреса из той же сети, в которой расположен новый бридж docker-ovsbr2:
+docker run -it --name container3 -d ubuntu /bin/bash
+docker run -it --name container4 -d ubuntu /bin/bash
+sudo ovs-docker add-port docker-ovsbr2 eth1 container3 --ipaddress=172.35.0.2/24
+sudo ovs-docker add-port docker-ovsbr2 eth1 container4 --ipaddress=172.35.0.3/24
+
+4. Также проверяем, что порты добавились в бридж docker-ovsbr2:
+sudo ovs-vsctl show
+
+5. На любом контейнере, подключенном через бридж docker-ovsbr2 (пусть это будет container3 с ip-адресом 172.35.0.2), проверим интерфейс eth1 и попробуем отправить пинг-запрос до контейнера, подключенного к docker-ovsbr1 (например на container1 с ip-адресом 172.25.0.2):
+# Проверяем на container3 настройки интерфейса eth1 командой ifconfig:n
+sudo docker exec container3 ifconfig eth1
+
+# Осталось попробовать отправить пинг-запрос до container1 с ip-адресом 172.25.0.2:
+sudo docker exec container3 ping 172.25.0.2
+
+6. На последнем шаге давайте попробуем отправить пинг запрос контейнеру container4 (172.35.0.3) с container2 (172.25.0.3). Не будем подробно останавливаться на всех шагах, так как они аналогичны предыдущим действиям, просто выполним команду ping:
+sudo docker exec container2 ping 172.35.0.3
+
+
+############################## Команды для диагностики и просмотра конфигурации OpenvSwitch ##############################
+1. отобразить список созданных бриджей:
+ovs-vsctl list-br
+
+kav@bqp:~/networks$ sudo ovs-vsctl list-br
+docker-ovsbr1
+docker-ovsbr2
+
+2. отобразить подробный список бриджей и интерфейсов, входящих в них (с этой командой мы работали, поэтому вывод опустим здесь).
+ovs-vsctl show
+
+3. отобразить список интерфейсов, входящих в бридж ovs-sys-br (ovs-sys-br — это наименование созданного бриджа здесь в качестве примера):
+sudo  ovs-vsctl list-ports docker-ovsbr2
+
+4. выводит в консоль статистику для сетевых устройств, связанных с бриджем (ovs-sys-br — это наименование созданного бриджа здесь в качестве примера):
+ovs-ofctl dump-ports ovs-sys-br
+
+
