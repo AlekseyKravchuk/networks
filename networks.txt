@@ -790,7 +790,8 @@ sudo apt install docker.io docker-compose -y
 systemctl start docker
 
 #  Команда 'gpasswd' назначает пользователя в группу с некоторыми критериями безопасности (используется для администрирования /etc/group и /etc/gshadow).
-sudo gpasswd -a $USER docker  # Adding user $USER  to group 'docker'
+# Adding user $USER  to group 'docker'
+sudo gpasswd -a $USER docker
 
 # Также нам потребуется загрузить образ ubuntu из официального репозитория Docker Hub, на основе которого будут созданы будущие контейнеры:
 sudo docker pull ubuntu
@@ -898,7 +899,6 @@ kav@bqp:~/bash_scripts$ sudo ovs-vsctl show
                 type: internal
     ovs_version: "2.17.9"
 
-
 4. Определим IP-адреса контейнеров:
 sudo docker exec container1 ifconfig eth1
 
@@ -1003,5 +1003,3 @@ sudo  ovs-vsctl list-ports docker-ovsbr2
 
 4. выводит в консоль статистику для сетевых устройств, связанных с бриджем (ovs-sys-br — это наименование созданного бриджа здесь в качестве примера):
 ovs-ofctl dump-ports ovs-sys-br
-
-

@@ -1,0 +1,62 @@
+# NET 06: Коммутация в виртуальной среде. OpenvSwitch
+Задание:
+
+В этом задании вам нужно будет настроить два бриджа в Open vSwitch с двумя разными сетями 192.168.50.0/24 и 192.168.150.0/24.
+А также установить Docker и запустить по три контейнера в каждой сети:
+
+# Установите OpenvSwitch и Docker.
+sudo apt-get install -y openvswitch-switch 
+sudo apt-get install -y docker.io          
+sudo gpasswd -a $USER docker  # в результате установки docker'a будет создана группа 'docker', нужно добавть текущего пользователя в эту группу
+
+
+# В среде OpenvSwitch (OVS) добавьте два бриджа с названиями ovs-rb-docker-1 и ovs-rb-docker-2.
+sudo ovs-vsctl add-br ovs-rb-docker-1 
+sudo ovs-vsctl add-br ovs-rb-docker-2
+
+# Предварительно обновимся и установим необходимые пакеты
+sudo apt update -qq && sudo apt install -y iputils-ping net-tools
+
+# Присвойте созданным бриджам IP-адреса 192.168.50.1 и 192.168.150.1 соответственно.
+sudo ifconfig ovs-rb-docker-1 192.168.50.1 netmask 255.255.255.0 up 
+sudo ifconfig ovs-rb-docker-2 192.168.150.1 netmask 255.255.255.0 up
+
+# Запустите 6 контейнеров, подключив их через интерфейсы eth1 к созданным ранее OVS бриджам следующим образом:
+# 3 контейнера — к бриджу ovs-rb-docker-1 с IP-адресами 192.168.50.2,  192.168.50.3  и 192.168.50.4  на интерфейсах eth1 каждого контейнера
+# 3 контейнера — к бриджу ovs-rb-docker-2 с IP-адресами 192.168.150.2, 192.168.150.3 и 192.168.150.4 на интерфейсах eth1 каждого контейнера
+
+sudo docker run -it --name container1 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-1 eth1 container1 --ipaddress=192.168.50.2  
+sudo docker run -it --name container2 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-1 eth1 container2 --ipaddress=192.168.50.3  
+sudo docker run -it --name container3 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-1 eth1 container3 --ipaddress=192.168.50.4  
+sudo docker run -it --name container4 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-2 eth1 container4 --ipaddress=192.168.150.2 
+sudo docker run -it --name container5 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-2 eth1 container5 --ipaddress=192.168.150.3 
+sudo docker run -it --name container6 -d ubuntu /bin/bash                          
+sudo ovs-docker add-port ovs-rb-docker-2 eth1 container6 --ipaddress=192.168.150.4
+
+# С помощью команд просмотра информации ovs-vsctl ... проверьте наличие созданных вами бриджей и интерфейсов на бриджах.
+sudo ovs-vsctl show
+sudo ovs-vsctl list-br
+
+# Внутри любого контейнера из сети 192.168.50.0/24 и установите ifconfig и ping (подсказка: вам нужно инсталлировать пакеты net-tools и iputils-ping).
+# Проверьте настройки на eth1. Попробуйте отправить ping-запрос до любого контейнера в сети 192.168.50.0/24.
+# Проделайте все аналогичные действия из предыдущего пункта для любого контейнера из сети 192.168.150.0/24.
+
+sudo docker exec container1 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container2 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container3 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container4 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container5 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+sudo docker exec container6 bash -c 'apt update -qq && apt install -y iputils-ping net-tools'
+
+sudo docker exec container1 bash -c 'ping 192.168.50.4'   # check connectivity within 192.168.50.0 network
+sudo docker exec container4 bash -c 'ping 192.168.150.4'  # check connectivity within 192.168.50.0 network
+sudo docker exec container1 bash -c 'ping 192.168.150.4'  # check connectivity between networks 192.168.50.0 and 192.168.50.0
+
+# Если уверены, что всё выполнили верно, можете нажимать кнопку "Проверить выполнение".
+
+
