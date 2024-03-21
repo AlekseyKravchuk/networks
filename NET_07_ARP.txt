@@ -24,4 +24,40 @@ arp -d {IP_address}
 # Альтернативным способом взаимодействовать с ARP-таблицей на устройстве под управлением ОС Linux можно с помощью более современной утилиты ip.
 # Среди доступных опций у команды ip есть neighbour, которая и позволяет работать с ARP-записями.
 
+# Вывод ARP-таблицы в консоль:
+ip neighbour
+
+user@rebrainme:~$ ip neighbour
+192.168.30.254 dev eth0 lladdr fc:99:47:dd:43:95 REACHABLE
+fe80::20c:29ff:feb7:c4dd dev eth0 lladdr 00:0c:29:b7:c4:dd STALE
+fe80::20c:29ff:fed5:1e49 dev eth0 lladdr 00:0c:29:d5:1e:49 STALE
+
+# Параметр REACHABLE означает, что запись динамическая и передача трафика для данного MAC-адреса недавно производилась,
+# а STALE говорит о том, что актуальность записи не проверялась в течение длительного времени.
+
+#################### Добавление статической ARP-записи ####################
+# Полный синтаксис команды выглядит так:
+lladdr - link-layer address - адрес канального уровня
+sudo ip <IP_version: -4 или -6> neighbour add <IP_address> lladdr <MAC_address> dev <NIC_name>
+
+sudo ip -4 neigh add 192.168.30.155 lladdr 11:11:11:11:11:11 dev eth0
+
+# После выполнения команды проверим ARP-таблицу и увидим в ней новую запись с параметром PERMANENT, указывающим на то, что запись статическая.
+user@rebrainme:~$ ip neighbour
+192.168.30.254 dev eth0 lladdr fc:99:47:dd:43:95 REACHABLE
+192.168.30.155 dev eth0 lladdr 11:11:11:11:11:11 PERMANENT
+fe80::20c:29ff:feb7:c4dd dev eth0 lladdr 00:0c:29:b7:c4:dd STALE
+fe80::20c:29ff:fed5:1e49 dev eth0 lladdr 00:0c:29:d5:1e:49 STALE
+
+#################### Удаление статической ARP-записи ####################
+sudo ip <IP_version: -4 или -6> neighbour del <IP_address> lladdr <MAC_address> dev <NIC_name>
+
+sudo ip -4 neigh del 192.168.30.155 lladdr 11:11:11:11:11:11 dev eth0
+
+# После выполнения команды убедимся, что ARP-запись с PERMANENT удалилась:
+user@rebrainme:~$ ip neigh
+192.168.30.254 dev eth0 lladdr fc:99:47:dd:43:95 REACHABLE
+fe80::20c:29ff:feb7:c4dd dev eth0 lladdr 00:0c:29:b7:c4:dd STALE
+fe80::20c:29ff:fed5:1e49 dev eth0 lladdr 00:0c:29:d5:1e:49 STALE
+
 
