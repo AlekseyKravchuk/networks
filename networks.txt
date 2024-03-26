@@ -509,11 +509,15 @@ N = 10 подсетей
 # Чтобы изменения сохранились перманентно, первый вариант - их нужно описать в конфигурационном файле /etc/network/interfaces.
 
 ifconfig <имя интерфейса> <ip адрес> netmask <маска в точечно-десятичном формате>
-user@rebraime-vm:~$ ifconfig ens160 192.168.30.21 netmask 255.255.255.0 broadcast 192.168.30.255 up
+# Пример:
+ifconfig eth0 192.168.1.1 netmask 255.255.255.0
+# ИЛИ
+ifconfig ens160 192.168.30.21 netmask 255.255.255.0 broadcast 192.168.30.255 up
 
 # Те же настройки можно назначить командой ip address (alias: ip a)
 ip address {add|change|replace} <ip_адрес>/<маска в виде префикса> dev <имя интерфейса>
-user@rebraime-vm:~$ip a add 192.168.30.21/24 dev ens160
+ip address add 192.168.30.21/24 dev ens160
+ip address add 192.168.1.1/24 dev eth0
 
 # ===================== Способ 2 — Изменение параметров конфигурации интерфейсов через /etc/network/interfaces =====================
 user@rebraime-vm:~$ sudo nano /etc/network/interfaces
@@ -1003,3 +1007,5 @@ sudo  ovs-vsctl list-ports docker-ovsbr2
 
 4. выводит в консоль статистику для сетевых устройств, связанных с бриджем (ovs-sys-br — это наименование созданного бриджа здесь в качестве примера):
 ovs-ofctl dump-ports ovs-sys-br
+########################################
+

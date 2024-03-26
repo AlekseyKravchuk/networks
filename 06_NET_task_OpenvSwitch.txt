@@ -11,7 +11,7 @@ sudo gpasswd -a $USER docker  # в результате установки docke
 
 
 # В среде OpenvSwitch (OVS) добавьте два бриджа с названиями ovs-rb-docker-1 и ovs-rb-docker-2.
-sudo ovs-vsctl add-br ovs-rb-docker-1 
+sudo ovs-vsctl add-br ovs-rb-docker-1
 sudo ovs-vsctl add-br ovs-rb-docker-2
 
 # Предварительно обновимся и установим необходимые пакеты
