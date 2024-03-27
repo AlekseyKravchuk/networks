@@ -1,5 +1,5 @@
 # Физические параметры сетевого интерфейса, такие как скорость и дуплекс, настраиваются с помощью утилиты ethtool (входит в состав пакета ethtool).
-# Устанавливаемв пакет 'ethtool'
+# Устанавливаем пакет 'ethtool'
 sudo apt-get install ethtool
 
 #Установка пакета 'net-tools':
@@ -866,7 +866,7 @@ virbr0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
 
 1.5. Запускаем уже существующие контейнеры:
 sudo docker container start container1
-sudo docker container start container2n
+sudo docker container start container2
 
 1.6. Снова проверяем вывод 'ifconfig' - теперь вывод дополнился 2-мя новыми интерфейсами:
 veth5eef7af: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
@@ -881,7 +881,7 @@ kav@bqp:~$ docker exec -it container1 cat /sys/class/net/eth0/iflink
 17
 
 # После этого выясняем соответствие:
-kav@bqp:~$ ip address | grep 17:
+ip address | grep 17:
 17: veth5eef7af@if16: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master docker0 state UP group default 
 
 2. Соединим эти контейнеры с бриджем OpenvSwitch (OVS) с именем "docker-ovsbr1" через интерфейсы контейнеров "eth1", присвоим им адреса 
@@ -1009,3 +1009,126 @@ sudo  ovs-vsctl list-ports docker-ovsbr2
 ovs-ofctl dump-ports ovs-sys-br
 ########################################
 
+#################### NET 10: Введение в QoS. Политики качества обслуживания трафика в OpenvSwitch ####################
+
+#################### Настройка ограничения скорости входящего трафика в OpenvSwitch ####################
+Для реализации QoS существует два стандартных метода маркировки трафика:
+    - IEEE 802.1p — маркировка на канальном уровне.
+    - DiffServ или ToS — маркировка на сетевом уровне.
+В маршрутизаторах и коммутаторах 3-го уровня применяется другой вид приоритизации, при котором в заголовок IP добавляется специальный байт ToS (Type of Service),
+в котором указывается информация о приоритете.
+Поле ToS состоит из 6 бит DiffServ Code Point (DSCP) и 2 бит Explicit Congestion Notification. DSCP использует 64 значения для уровней сервиса, что позволяет настроить приоритеты очень гибко. 
+
+Политику QoS можно реализовать различными способами, наиболее простой - ограничение пропускной способности для классов трафика.
+Существует 2 разных подхода к ограничению скорости:
+   - полисинг (Traffic Policing);
+   - шейпинг (Traffic Shaping).
+Полисинг ограничивает скорость путем отбрасывания лишнего трафика, шейпинг - путем буферизации лишнего трафика.
+
+
+Утилита iperf - кроссплатформенная консольная клиент-серверная программа — генератор/измеритель TCP и UDP трафика для тестирования пропускной способности и производительности сети.
+# Устанавливаем 'iperf' и другие необходимые сетевые пакеты:
+sudo docker exec container1 bash -c 'apt update -qq && apt install -y iputils-ping net-tools iproute2 iperf3'
+sudo docker exec container2 bash -c 'apt update -qq && apt install -y iputils-ping net-tools iproute2 iperf3'
+
+# для работы с ifconfig из пакета net-tools:
+sudo apt-get install net-tools
+
+# для работы с командой 'ip' из пакета iproute2:
+sudo apt-get install iproute2
+
+# По умолчанию iperf3 работает так: сервер принимает данные, а клиент отправляет.
+# На хосте B (container2) запустим серверную часть:
+sudo docker exec container2 bash -c 'iperf3 -s -p 4000 -f K'
+
+# Например, замер скорости по порту 4000 с выводом данных в Кбайтах будет выглядеть так:
+sudo iperf3 -s -p 4000 -f K
+-----------------------------------------------------------
+Server listening on 4000
+-----------------------------------------------------------
+
+Ключи 'iperf3' только для серверной части:
+    -D, --daemon - запустить сервер в фоновом режиме;
+    -I, --pidfile - путь для записи PID файла процесса;
+    -1, --one-off - обработать только одно подключение клиента, а затем выйти.
+
+
+# На хосте A запускаем клиентскую часть, которая будет отправлять данные серверу на хосте B:
+sudo docker exec container1 bash -c 'iperf3 -c 173.16.1.3 -p 4000 -t 2 -P 2'
+
+Ключи клиентской части:
+    --sctp - использовать SCTP вместо TCP, по умолчанию тестирование проводится по TCP;
+    -u, --udp - использовать UDP вместо TCP;
+    --connect-timeout - таймаут для первого соединения с сервером в миллисекундах;
+    -b, --bitrate - битрейт, для UDP используется по умолчанию 1 Мбит/сек, для TCP не ограничено;
+    -t, --time - время одного теста в секундах, по умолчанию 10 секунд;
+    -R, --reverse - обратный тест, не клиент отправляет данные серверу, а сервер клиенту;
+    -P - количество потоков;
+    -w - размер окна TCP;
+    -4, --version4 - использовать только IPv4;
+    -6, --version6 - использовать только IPv6.
+
+
+Общие ключи программы 'iperf3':
+    -p, --port - указать порт для сервера или к какому порту надо подключаться, по умолчанию он работает на порту 5201;
+    -f, --format - формат выводимых данных, доступны значения: k(Кбит), K(Кбайт), m(Мбит), M(Мбайт), g(Гбит),G (Гбайт);
+    -i, --interval - интервал времени между выводами результата тестирования;
+    -F, --file - использовать данные из файла вместо генерации случайных данных;
+    -V, --verbose - вывод максимально подробной информации;
+    -J, --json - вывод в формате JSON;
+    --logfile - записывать информацию в лог файл;
+    --forceflush - очищать историю вывода перед выводом следующего результата тестирования;
+    -v, --version - версия программы.
+
+# Например, замер скорости с ip-адреса серверной части B 192.168.0.14 по порту 4000 за интервал времени 2 секунды на 2х потоках:
+sudo iperf3 -c 192.168.0.14 -p 4000 -t 2 -P 2
+Connecting to host 192.168.0.14, port 4000
+Reverse mode, remote host 192.168.0.14 is sending
+[  4] local 192.168.0.13 port 62817 connected to 192.168.0.14 port 4000
+[  6] local 192.168.0.13 port 62818 connected to 192.168.0.14 port 4000
+[ ID] Interval           Transfer     Bandwidth
+[  4]   0.00-1.00   sec  3.96 MBytes  33.3 Mbits/sec
+[  6]   0.00-1.00   sec  3.75 MBytes  31.5 Mbits/sec
+[SUM]   0.00-1.00   sec  7.71 MBytes  64.7 Mbits/sec
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[  4]   1.00-2.00   sec  3.79 MBytes  31.8 Mbits/sec
+[  6]   1.00-2.00   sec  3.64 MBytes  30.5 Mbits/sec
+[SUM]   1.00-2.00   sec  7.43 MBytes  62.3 Mbits/sec
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth
+[  4]   0.00-2.00   sec  7.88 MBytes  33.0 Mbits/sec                  sender
+[  4]   0.00-2.00   sec  7.75 MBytes  32.5 Mbits/sec                  receiver
+[  6]   0.00-2.00   sec  7.62 MBytes  32.0 Mbits/sec                  sender
+[  6]   0.00-2.00   sec  7.62 MBytes  32.0 Mbits/sec                  receiver
+[SUM]   0.00-2.00   sec  15.5 MBytes  65.0 Mbits/sec                  sender
+[SUM]   0.00-2.00   sec  15.4 MBytes  64.5 Mbits/sec                  receiver
+
+iperf Done.
+
+Результаты замера отображаются как на клиентской части хоста A, так и на серверной - хост B.
+
+sudo docker exec container1 ping 173.16.1.3
+
+# Просмотреть только ЗАПУЩЕННЫЕ контейнеры (Listing Running Containers):
+docker ps
+
+# Просмотреть только ВСЕ контейнеры (Listing All Containers, including the stopped ones):
+docker ps -a
+
+#
+sudo ovs-vsctl show
+
+# настроим политику QoS простым полисингом - ограничим скорость входящего трафика на интерфейсе 7c47675a7f924_l (результат вывода 'sudo ovs-vsctil show').
+# В OvS полисингом регулируется только входящий трафик. В консоли OvS вводим:
+sudo ovs-vsctl set Interface 7c47675a7f924_l ingress_policing_rate=1000000
+sudo ovs-vsctl set Interface 7c47675a7f924_l ingress_policing_burst=1000000
+
+# ingress_policing_rate=1000000 здесь устанавливается максимальная скорость входящего трафика (в Кбит/с);
+# ingress_policing_burst=1000000 максимальный объем данных (в килобитах), который этот интерфейс может принять сверх установленной скорости.
+
+# То же самое, но для интерфейса '5a6faad49b8b4_l'
+sudo ovs-vsctl set Interface 5a6faad49b8b4_l ingress_policing_rate=1000000
+sudo ovs-vsctl set Interface 5a6faad49b8b4_l ingress_policing_burst=1000000
+
+# Способ простой, но может плохо взаимодействовать с некоторыми сетевыми протоколами и выдавать неожиданные результаты.
+# Рекомендуется устанавливать policing_rate и policing_burst одинаковой величины, необходимо тестировать работу после настройки. 
