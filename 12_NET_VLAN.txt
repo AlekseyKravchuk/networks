@@ -1,0 +1,94 @@
+Задание: Перед началом задания ознакомьтесь со схемой топологии сети.
+Для организации VLAN используйте таблицу:
+
+VLAN-ID 	Сеть 	IP-адрес L3 интерфейса OvS-Root 	Хосты, принадлежащие VLAN
+100 	10.72.0.0/25 	          10.72.0.1                      HOST-1 (10.72.0.2/25), HOST-2(10.72.0.3/25)
+101 	10.72.0.128/26 	          10.72.0.129                    HOST-4 (10.72.0.130/26),HOST-5 (),HOST-6 (10.72.0.132/26)
+102 	10.72.0.192/27 	          10.72.0.193                    HOST-3 (10.72.0.194/27), HOST-7 (10.72.0.195/27)
+103 	10.72.0.224/27 	          10.72.0.225                    HOST-8 (10.72.0.226/27), HOST-9 (10.72.0.227/27)
+
+Linux-server: 10.0.0.2/30
+
+На всех конечных хостах уже настроена адресация с учетом их принадлежности к VLAN'ам.
+    На коммутаторах OvS настройте порты в соответствующем режиме - access либо trunk, исходя из схемы задания.
+    Настройте терминирование VLAN и IP-адреса L3 интерфейсов на OvS-Root согласно таблице.
+    Настройте на OvS-Root интерфейс eth3 в сторону Linux-server с IP-адресом 10.0.0.1/30.
+    Проверьте связность хостов в каждом отдельном VLAN'e, а также связность с eth0 интерфейсом Linux_server-а.
+
+##################################################
+
+#################### Настройка OvS_Root ####################
+# Переводим интерфейсы eth0, eth1, eth2 в режим trunk:
+ovs-vsctl set port eth0 trunks=100,103
+ovs-vsctl set port eth1 trunks=101,102
+ovs-vsctl set port eth2 trunks=101,102
+
+# Переводим интерфейс eth3 в режим access с VLAN_ID=1 (Native VLAN)
+ovs-vsctl set port eth3 tag=1
+
+# Настраиваем терминирование VLAN и IP-адреса L3 интерфейсов на OvS-Root согласно таблице.
+ovs-vsctl add-port br0 vlan100 tag=100 \
+ -- set interface vlan100 type=internal
+ip addr add 10.72.0.1/25 dev vlan100
+ip link set vlan100 up
+
+ovs-vsctl add-port br0 vlan101 tag=101 \
+ -- set interface vlan101 type=internal
+ip addr add 10.72.0.129/26 dev vlan101
+ip link set vlan101 up
+
+ovs-vsctl add-port br0 vlan102 tag=102 \
+ -- set interface vlan102 type=internal
+ip addr add 10.72.0.193/27 dev vlan102
+ip link set vlan102 up
+
+ovs-vsctl add-port br0 vlan103 tag=103 \
+ -- set interface vlan103 type=internal
+ip addr add 10.72.0.225/27 dev vlan103
+ip link set vlan103 up
+
+# Настраиваем на OvS-Root интерфейс eth3 в сторону Linux-server с IP-адресом 10.0.0.1/30.
+ip address add 10.0.0.1/30 dev eth3
+ip link set eth3 up
+
+#################### Настройка OvS-1 ####################
+# добавляем порты в режиме access:
+ovs-vsctl set port eth1 tag=100
+ovs-vsctl set port eth2 tag=100
+ovs-vsctl set port eth3 tag=103
+ovs-vsctl set port eth4 tag=103
+
+# добавляем порты в режиме trunk:
+ovs-vsctl set port eth0 trunks=100,103
+
+#################### Настройка OvS-2 ####################
+ovs-vsctl set port eth1 tag=102
+ovs-vsctl set port eth2 tag=101
+ovs-vsctl set port eth3 tag=101
+
+ovs-vsctl set port eth0 trunks=101,102
+
+#################### Настройка OvS-3 ####################
+ovs-vsctl set port eth1 tag=101
+ovs-vsctl set port eth2 tag=102
+ovs-vsctl set port eth0 trunks=101,102
+
+
+
+############################## Настройка Linux-сервера ##############################
+# создание логических интерфейсов и назначение им IP-адресов
+
+ip link add link eth0 name eth0.100 type vlan id 100
+ip link add link eth0 name eth0.101 type vlan id 101
+ip link add link eth0 name eth0.102 type vlan id 102
+ip link add link eth0 name eth0.103 type vlan id 103
+
+ip addr add 10.72.0.4/25 dev eth0.100
+ip addr add 10.72.0.133/26 dev eth0.101
+ip addr add 10.72.0.196/27 dev eth0.102
+ip addr add 10.72.0.228/27 dev eth0.103
+
+ip link set eth0.100 up
+ip link set eth0.101 up
+ip link set eth0.102 up
+ip link set eth0.103 up
