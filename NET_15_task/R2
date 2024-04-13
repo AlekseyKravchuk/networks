@@ -1,0 +1,31 @@
+# Смотрим, какие интерфейсы у нас используются:
+FRRouter# show interface brief
+
+# Переходим в режим конфигурации:
+FRRouter# configure terminal
+
+# Зададим имя программному маршрутизатору:
+FRRouter(config)# hostname R2
+
+# Чтобы нам не возвращаться из режима конфигурации в обычный режим, достаточно использовать оператор "do":
+R1(config)# do show running-config
+
+# Переходим к настройкам сетевых интерфейсов.
+#################### eth1 ####################
+R1(config)# interface eth1
+R1(config-if)# ip address 10.0.1.2/30
+R1(config-if)# no shutdown
+
+# Проверяем, применилась ли настройка:
+R1(config-if)do show interface brief
+
+# Проверяем связность с PC1
+# R1(config-if) do ping 192.168.1.10
+
+#################### eth2 ####################
+R1(config)# interface eth2
+R1(config-if)# ip address 10.0.2.1/30
+R1(config-if)# no shutdown
+
+# Проверяем, применилась ли настройка:
+R1(config-if)do show interface brief
