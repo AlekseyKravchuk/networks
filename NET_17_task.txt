@@ -1,0 +1,70 @@
+############################## R1 ##############################
+R1(config)# router ospf
+R1(config-router)# ospf router-id 10.0.0.1
+R1(config-router)# network 10.0.2.0/24 area 0   # eth0
+R1(config-router)# network 10.0.1.8/30 area 0   # eth1
+R1(config-router)# network 10.0.1.20/30 area 0  # eth2
+R1(config-router)# passive-interface eth0  #интерфейс в сторону PC-1
+R1(config-router)# quit
+R1(config)# quit
+R1# copy running-config startup-config  #не забываем сохранить текущую конфигурацию в загрузочную.
+
+R1# show ip route
+R1# show ip route ospf
+R1# show ip ospf int eth0
+
+
+############################## R2 ##############################
+R2(config)# router ospf
+R2(config-router)# ospf router-id 10.0.0.2
+R2(config-router)# network 10.0.1.8/30 area 0    # eth2
+R2(config-router)# network 10.0.1.12/30 area 0   # eth1
+R2(config-router)# quit
+R2(config)# quit
+R2# copy running-config startup-config  # не забываем сохранить текущую конфигурацию в загрузочную.
+############################## R3 ##############################
+R3(config)# router ospf
+R3(config-router)# ospf router-id 10.0.0.3
+R3(config-router)# network 10.0.1.20/30 area 0  # eth1
+R3(config-router)# network 10.0.1.24/30 area 0  # eth2
+R3(config-router)# quit
+R3(config)# quit
+R3# copy running-config startup-config  # не забываем сохранить текущую конфигурацию в загрузочную.
+
+############################## R4 ##############################
+R4(config)# router ospf
+R4(config-router)# ospf router-id 10.0.0.4
+R4(config-router)# network 10.0.1.16/30 area 0  # eth1
+R4(config-router)# network 10.0.1.12/30 area 0  # eth2
+R4(config-router)# quit
+R4(config)# quit
+R4# copy running-config startup-config  # не забываем сохранить текущую конфигурацию в загрузочную.
+
+############################## R5 ##############################
+R5(config)# router ospf
+R5(config-router)# ospf router-id 10.0.0.5
+R5(config-router)# network 10.0.3.0/24 area 0   # eth0
+R5(config-router)# network 10.0.1.24/30 area 0  # eth1
+R5(config-router)# network 10.0.1.16/30 area 0  # eth2
+R1(config-router)# passive-interface eth0  #интерфейс в сторону PC-2
+R5(config-router)# quit
+R5(config)# quit
+R5# copy running-config startup-config  # не забываем сохранить текущую конфигурацию в загрузочную.
+
+
+# Также опционально можно изменять стоимость линков в OSPF.
+# Так как трафик по каналу передается в двух направлениях, то и менять стоимость на интерфейсах нужно на роутерах с обеих сторон.
+# Для этого в режиме конфигурации интерфейса необходимо выполнить команду ip ospf cost <1 - 65535>, например:
+
+# Изменить стоимость на линке R1 - R3 на 250.
+# На R1:
+Router(config)# interface eth2
+Router(config-if)# ip ospf cost 250
+
+# На R3:
+Router(config)# interface eth1
+Router(config-if)# ip ospf cost 250
+
+# Команда показывает подробную информацию об OSPF на интерфейсе.
+R1# show ip ospf neighbor
+show ip ospf neighbor
